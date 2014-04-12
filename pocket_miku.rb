@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 require 'pocket_miku'
+require 'MeCab'
 
 Plugin.create(:pocket_miku) do
   notify_thread = SerialThreadGroup.new
@@ -11,7 +12,8 @@ Plugin.create(:pocket_miku) do
     sound_test_button = Gtk::Button.new('発音テスト')
     closeup sound_test_button.right
 
-	boolean 'ふぁぼ通知', :pocket_miku_fav_notification
+    boolean 'ふぁぼ通知', :pocket_miku_fav_notification
+    boolean 'リプライ読みあげ', :pocket_miku_reply_notification
 
     sound_test_button.signal_connect('clicked') do
       # 調教的にキツい
@@ -24,6 +26,44 @@ Plugin.create(:pocket_miku) do
       end
     end end
 
+  on_appear do |ms|
+    if UserConfig[:pocket_miku_reply_notification]
+      ms.each do |m|
+        # まえのリプライには反応しない 
+        if Time.now - m[:created] > 5
+          next
+        end
+        if m[:system]
+          next
+        end
+        c = MeCab::Tagger.new("-O yomi")
+        if m.message.to_s =~ /@#{Service.primary.user.to_s}/
+          msg = m.message.to_s
+          msgStr = msg.gsub(/@#{Service.primary.user.to_s}/, " ")
+          msgStr = c.parse(msgStr)
+          msgStr = msgStr.force_encoding(Encoding::UTF_8) 
+          #        msgStr = msgStr.encode("UTF-8", :undef=> :replace, :replace=> " ")
+          msgStr.tr('ァ-ン','ぁ-ん').chars do |s|
+            notify_thread.new do
+              if PocketMiku::CharTable[s.intern]
+                sing do 
+                  tempo 60
+                  generate_note(PocketMiku::CharTable[s.intern],key: 60, length: PocketMiku::Note8)
+                end
+              end
+              if s == "っ"
+                sing do
+                  tempo 60
+                  っ PocketMiku::Note8
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  
   on_favorite do |service, by, to|
     if UserConfig[:pocket_miku_fav_notification] and to.from_me?
       notify_thread.new do
