@@ -43,21 +43,48 @@ Plugin.create(:pocket_miku) do
           msgStr = c.parse(msgStr)
           msgStr = msgStr.force_encoding(Encoding::UTF_8) 
           #        msgStr = msgStr.encode("UTF-8", :undef=> :replace, :replace=> " ")
-          msgStr.tr('ァ-ン','ぁ-ん').chars do |s|
-            notify_thread.new do
-              if PocketMiku::CharTable[s.intern]
+          prev = " "
+          (msgStr+" ").tr('ァ-ン','ぁ-ん').chars do |s|
+            t = s
+            if PocketMiku::CharTable[(prev + s).intern]
+              prev = prev + s
+            end
+            puts prev
+            talk = prev
+            prev = t
+            if PocketMiku::CharTable[talk.intern]
+              notify_thread.new do
                 sing do 
                   tempo 60
-                  generate_note(PocketMiku::CharTable[s.intern],key: 60, length: PocketMiku::Note8)
+                  generate_note(PocketMiku::CharTable[talk.intern],key: 60, length: PocketMiku::Note8)
                 end
               end
-              if s == "っ"
+            end
+            if talk == "っ"
+              notify_thread.new do  
                 sing do
                   tempo 60
                   っ PocketMiku::Note8
                 end
               end
             end
+            if talk == "、"
+              notify_thread.new do  
+                sing do
+                  tempo 60
+                  っ PocketMiku::Note8
+                end
+              end
+            end
+            if talk == "。"
+              notify_thread.new do  
+                sing do
+                  tempo 60
+                  っ PocketMiku::Note4
+                end
+              end
+            end
+            
           end
         end
       end
